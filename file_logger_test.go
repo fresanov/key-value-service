@@ -16,7 +16,7 @@ func TestLogger(t *testing.T) {
 				func(logger TransactionLogger) { logger.WritePut("key1", "value123") },
 			},
 			expected: []Event{
-				{EventType: EventPut, Key: "key1", Value: "value1234"},
+				{EventType: EventPut, Key: "key1", Value: "value123"},
 			},
 		},
 		{
