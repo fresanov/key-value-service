@@ -55,3 +55,6 @@ build/
 
 # Ignore the binary output of the project
 bin/
+
+# Environment variables file 
+.env

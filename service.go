@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"sync"
+
+	"github.com/joho/godotenv"
 )
 
 type EventType byte
@@ -31,14 +35,35 @@ type TransactionLogger interface {
 
 var logger TransactionLogger
 
-func initializeTransactionLog(logType string) error {
+type LogType int
+
+const (
+	FileLogType LogType = iota
+	DatabaseLogType
+)
+
+func initializeTransactionLog(logType LogType) error {
 	var err error
 
+	// Load environment variables from .env file
+	err = godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
 	switch logType {
-	case "file":
+	case FileLogType:
 		logger, err = NewFileTransactionLogger("transaction.log")
-	case "databse":
-		// TODO
+	case DatabaseLogType:
+		logger, err =
+			NewPostgresTransactionLogger(PostgresDBParams{
+				host:     os.Getenv("POSTGRES_HOST"),
+				dbName:   os.Getenv("POSTGRES_DB"),
+				user:     os.Getenv("POSTGRES_USER"),
+				password: os.Getenv("POSTGRES_PASSWORD"),
+				sslmode:  "disable",
+			})
+
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create event logger: %w", err)

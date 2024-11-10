@@ -74,7 +74,11 @@ func init() {
 }
 
 func main() {
-	initializeTransactionLog("file")
+	//err := initializeTransactionLog(FileLogType)
+	err := initializeTransactionLog(DatabaseLogType)
+	if err != nil {
+		log.Fatalf("Cannot initialize transaction log: %s", err)
+	}
 
 	r := mux.NewRouter()
 
