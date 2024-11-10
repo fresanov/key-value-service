@@ -3,7 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -12,6 +14,7 @@ import (
 type PostgresDBParams struct {
 	dbName   string
 	host     string
+	port     string
 	user     string
 	password string
 	sslmode  string
@@ -24,18 +27,27 @@ type PostgresTransactionLogger struct {
 }
 
 func NewPostgresTransactionLogger(config PostgresDBParams) (TransactionLogger, error) {
-	connStr := fmt.Sprintf("host=%s dbname=%s user=%s password=%s sslmode=%s",
-		config.host, config.dbName, config.user, config.password, config.sslmode)
+	connStr := fmt.Sprintf("host=%s port = %s dbname=%s user=%s password=%s sslmode=%s",
+		config.host, config.port, config.dbName, config.user, config.password, config.sslmode)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
-	err = db.Ping()
-	// Test the database connection
+
+	// Retry mechanism to wait for the database to be ready
+	for i := 0; i < 10; i++ {
+		log.Println("pinging database")
+		err = db.Ping()
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db connection: %w", err)
 	}
+
 	logger := &PostgresTransactionLogger{db: db}
 	exists, err := logger.verifyTableExists()
 	if err != nil {
@@ -66,6 +78,10 @@ func (l *PostgresTransactionLogger) Run() *sync.WaitGroup {
 	l.events = events
 	errors := make(chan error, 1)
 	l.errors = errors
+
+	var once sync.Once
+	var wg sync.WaitGroup
+
 	go func() {
 		query := `INSERT INTO transactions
 							(event_type, key, value)
@@ -79,10 +95,16 @@ func (l *PostgresTransactionLogger) Run() *sync.WaitGroup {
 			if err != nil {
 				errors <- err
 			}
+
+			once.Do(func() {
+				// At least one event has been written, let the caller know
+				wg.Done()
+			})
 		}
 	}()
 
-	return nil // will not be used by clients of this implemntation
+	wg.Add(1)
+	return &wg
 }
 
 func (l *PostgresTransactionLogger) ReadEvents() (<-chan Event, <-chan error) {

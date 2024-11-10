@@ -58,6 +58,7 @@ func initializeTransactionLog(logType LogType) error {
 		logger, err =
 			NewPostgresTransactionLogger(PostgresDBParams{
 				host:     os.Getenv("POSTGRES_HOST"),
+				port:     os.Getenv("POSTGRES_PORT"),
 				dbName:   os.Getenv("POSTGRES_DB"),
 				user:     os.Getenv("POSTGRES_USER"),
 				password: os.Getenv("POSTGRES_PASSWORD"),
