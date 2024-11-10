@@ -4,130 +4,85 @@ import (
 	"testing"
 )
 
-func TestLoggerPut(t *testing.T) {
-	logger, err := NewFileTransactionLogger("")
-	if err != nil {
-		t.Fatalf("failed to create logger: %v", err)
+func TestLogger(t *testing.T) {
+	tests := []struct {
+		name       string
+		operations []func(logger TransactionLogger)
+		expected   []Event
+	}{
+		{
+			name: "Put",
+			operations: []func(logger TransactionLogger){
+				func(logger TransactionLogger) { logger.WritePut("key1", "value123") },
+			},
+			expected: []Event{
+				{EventType: EventPut, Key: "key1", Value: "value123"},
+			},
+		},
+		{
+			name: "Delete",
+			operations: []func(logger TransactionLogger){
+				func(logger TransactionLogger) { logger.WriteDelete("key1") },
+			},
+			expected: []Event{
+				{EventType: EventDelete, Key: "key1"},
+			},
+		},
+		{
+			name: "Put and Delete",
+			operations: []func(logger TransactionLogger){
+				func(logger TransactionLogger) { logger.WritePut("key1", "value123") },
+				func(logger TransactionLogger) { logger.WriteDelete("key1") },
+			},
+			expected: []Event{
+				{EventType: EventPut, Key: "key1", Value: "value123"},
+				{EventType: EventDelete, Key: "key1"},
+			},
+		},
 	}
-	wg := logger.Run()
 
-	logger.WritePut("key1", "value123")
-	logger.Shutdown()
-
-	// Wait for Run() to encode the event
-	// otherwise, ReadEvents() is too fast and will not receive the event
-	wg.Wait()
-
-	fileLogger, ok := logger.(*FileTransactionLogger)
-	if !ok {
-		t.Fatalf("logger is not a FileTransactionLogger")
-	}
-	// since we are using the API backwards for the test, calling Run() before ReadEvents()
-	// we have to reset the sequence by number of events
-	fileLogger.lastSequence--
-
-	events, errors := logger.ReadEvents()
-
-	for {
-		select {
-		case err := <-errors:
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger, err := NewFileTransactionLogger("")
 			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+				t.Fatalf("failed to create logger: %v", err)
 			}
-		case event, ok := <-events:
+			wg := logger.Run()
+
+			for _, op := range tt.operations {
+				op(logger)
+			}
+			logger.Shutdown()
+
+			// Wait for Run() to encode the event
+			// otherwise, ReadEvents() is too fast and will not receive the event
+			wg.Wait()
+
+			fileLogger, ok := logger.(*FileTransactionLogger)
 			if !ok {
-				return
+				t.Fatalf("logger is not a FileTransactionLogger")
 			}
-			if event.Key != "key1" || event.Value != "value123" || event.EventType != EventPut {
-				t.Fatalf("unexpected event: %+v", event)
+			// since we are using the API backwards for the test, calling Run() before ReadEvents()
+			// we have to reset the sequence by number of events
+			fileLogger.lastSequence -= uint64(len(tt.expected))
+
+			events, errors := logger.ReadEvents()
+
+			for i, expectedEvent := range tt.expected {
+				select {
+				case err := <-errors:
+					if err != nil {
+						t.Fatalf("unexpected error: %v", err)
+					}
+				case event, ok := <-events:
+					if !ok {
+						t.Fatalf("expected event %d but got none", i)
+					}
+					if event.Key != expectedEvent.Key || event.Value != expectedEvent.Value || event.EventType != expectedEvent.EventType {
+						t.Fatalf("unexpected event: got %+v, want %+v", event, expectedEvent)
+					}
+				}
 			}
-		}
-	}
-}
-
-func TestLoggerDelete(t *testing.T) {
-	logger, err := NewFileTransactionLogger("")
-	if err != nil {
-		t.Fatalf("failed to create logger: %v", err)
-	}
-	wg := logger.Run()
-
-	logger.WriteDelete("key1")
-	logger.Shutdown()
-
-	// Wait for Run() to encode the event
-	// otherwise, ReadEvents() is too fast and will not receive the event
-	wg.Wait()
-
-	fileLogger, ok := logger.(*FileTransactionLogger)
-	if !ok {
-		t.Fatalf("logger is not a FileTransactionLogger")
-	}
-	// since we are using the API backwards for the test, calling Run() before ReadEvents()
-	// we have to reset the sequence by number of events
-	fileLogger.lastSequence--
-
-	events, errors := logger.ReadEvents()
-
-	for {
-		select {
-		case err := <-errors:
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-			if event.Key != "key1" || event.EventType != EventDelete {
-				t.Fatalf("unexpected event: %+v", event)
-			}
-		}
-	}
-}
-
-func TestLoggerPuttingAndDeleting(t *testing.T) {
-	logger, err := NewFileTransactionLogger("")
-	if err != nil {
-		t.Fatalf("failed to create logger: %v", err)
-	}
-	wg := logger.Run()
-
-	logger.WritePut("key1", "value123")
-	logger.WriteDelete("key1")
-	logger.Shutdown()
-
-	// Wait for Run() to encode the event
-	// otherwise, ReadEvents() is too fast and will not receive the event
-	wg.Wait()
-
-	fileLogger, ok := logger.(*FileTransactionLogger)
-	if !ok {
-		t.Fatalf("logger is not a FileTransactionLogger")
-	}
-	// since we are using the API backwards for the test, calling Run() before ReadEvents()
-	// we have to reset the sequence by number of events
-	fileLogger.lastSequence = fileLogger.lastSequence - 2
-
-	events, errors := logger.ReadEvents()
-
-	for {
-		select {
-		case err := <-errors:
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-			t.Logf("event: %+v", event)
-			if event.Key == "key1" && event.Value == "value123" && event.EventType != EventPut {
-				t.Fatalf("unexpected event: %+v", event)
-			}
-			if event.Key == "key1" && event.Value == "" && event.EventType != EventDelete {
-				t.Fatalf("unexpected event: %+v", event)
-			}
-		}
+		})
 	}
 }
