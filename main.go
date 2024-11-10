@@ -75,7 +75,7 @@ func init() {
 
 func main() {
 	//err := initializeTransactionLog(FileLogType)
-	err := initializeTransactionLog(DatabaseLogType)
+	err := initializeTransactionLog(DatabaseLog)
 	if err != nil {
 		log.Fatalf("Cannot initialize transaction log: %s", err)
 	}

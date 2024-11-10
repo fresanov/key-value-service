@@ -38,8 +38,8 @@ var logger TransactionLogger
 type LogType int
 
 const (
-	FileLogType LogType = iota
-	DatabaseLogType
+	FileLog LogType = iota
+	DatabaseLog
 )
 
 func initializeTransactionLog(logType LogType) error {
@@ -52,9 +52,9 @@ func initializeTransactionLog(logType LogType) error {
 	}
 
 	switch logType {
-	case FileLogType:
+	case FileLog:
 		logger, err = NewFileTransactionLogger("transaction.log")
-	case DatabaseLogType:
+	case DatabaseLog:
 		logger, err =
 			NewPostgresTransactionLogger(PostgresDBParams{
 				host:     os.Getenv("POSTGRES_HOST"),
