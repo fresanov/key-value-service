@@ -1,0 +1,57 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of the go coverage tool
+*.coverprofile
+
+# Output of the go build tool
+*.a
+*.o
+*.e
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Go modules
+vendor/
+go.sum
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Dependency directories
+vendor/
+
+# Go build cache
+*.cache
+
+# Go test binary
+*.test
+
+# Go coverage tool files
+*.cover
+
+# Go race detector output
+*.race
+
+# Go build output
+bin/
+build/
+
+# VS Code specific files
+.vscode/
+.history/
+
+# Ignore the binary output of the project
+bin/
