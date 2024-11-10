@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -93,8 +92,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("failed to get container port %v: %v", port, err)
 	}
-
-	fmt.Printf("PostgreSQL container running at %s:%s\n", host, port.Port())
 
 	params = PostgresDBParams{
 		host:     host,
