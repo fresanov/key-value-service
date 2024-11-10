@@ -28,7 +28,7 @@ type FileTransactionLogger struct {
 
 // NewFileTransactionLogger creates a new FileTransactionLogger
 // that writes to the specified file. If the filename is empty,
-// the logger will write to an in-memory buffer.
+// the logger will write to an in-memory buffer (intended for unit-testing).
 func NewFileTransactionLogger(filename string) (TransactionLogger, error) {
 	if filename == "" {
 		return &FileTransactionLogger{file: new(CloseableBuffer)}, nil
@@ -53,7 +53,7 @@ func (l *FileTransactionLogger) Err() <-chan error {
 }
 
 func (l *FileTransactionLogger) Shutdown() {
-	log.Println("Closing log file...")
+	// TODO flush channels to file
 	l.file.Close()
 }
 
@@ -68,7 +68,6 @@ func (l *FileTransactionLogger) Run() *sync.WaitGroup {
 	go func() {
 		encoder := json.NewEncoder(l.file)
 		for e := range events { // Retrieve the next Event
-			log.Printf("received event: %+v", e)
 			l.lastSequence++ // Increment sequence number
 			e.Sequence = l.lastSequence
 
@@ -108,13 +107,12 @@ func (l *FileTransactionLogger) ReadEvents() (<-chan Event, <-chan error) {
 			}
 
 			// Sanity check! Are the sequence numbers in increasing order?
-			if l.lastSequence > e.Sequence {
+			if l.lastSequence >= e.Sequence {
 				outError <- fmt.Errorf("transaction numbers out of sequence, sequence: %d, last sequence: %d", e.Sequence, l.lastSequence)
 				return
 			}
 			l.lastSequence = e.Sequence // Update last used sequence #
 
-			log.Printf("sending event: %+v", e)
 			outEvent <- e // Send the event along
 		}
 	}()
